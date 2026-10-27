@@ -1,46 +1,53 @@
-# Contributing
+# Contributing to Monad
 
-Thanks for helping! Bug reports, fixes, translations of the documentation and new features are all
-welcome.
+Thanks for helping! Monad is a family: this repository holds what the apps share (the guide, the brand
+and the UI kit), and each app lives in its own repository.
 
-## Reporting a bug
+| You want to… | Go to |
+| --- | --- |
+| Report a bug or propose a feature in an app | That app's repository: [OVMS Manager](https://github.com/VarCode-ai/ovms-manager/issues), [Lectern](https://github.com/VarCode-ai/lectern/issues) |
+| Translate an app | The `CONTRIBUTING.md` of that app (*Translations*) |
+| Change the shared kit, the brand or the family documentation | This repository |
+| Build a new Monad app | [Building a new Monad app](#building-a-new-monad-app), below |
 
-Open an issue with:
+## The shared kit
 
-- your distribution and version, and your hardware (CPU, GPU, NPU);
-- what you did, what you expected, and what happened;
-- the relevant log: the console of OVMS Manager, or `~/.cache/lectern/lectern.log` for Lectern.
+Every app is built on [common/ui_kit.py](common/ui_kit.py) and the fonts in `common/fonts/`: design tokens,
+light and dark themes, icons, the command palette, the update checker. Each app keeps **its own copy** in
+its `common/` folder, so every repository installs and builds on its own, without submodules.
 
-## Running from a clone
+The copy in this repository is the reference:
 
-The installers have a development mode: the menu entry and the commands run the files in your clone, so
-every change is live at the next start.
+1. Change the kit here, and run `python tools/check_contrast.py` if you touched a color.
+2. Copy it into the app repositories, cloned next to this one:
 
-```bash
-./ovms-manager/install.sh --dev
-./lectern/install.sh --dev
+   ```bash
+   tools/sync-common.sh ../ovms-manager ../lectern
+   ```
+
+3. In each app, run its checks and try the app, then commit the kit together with any change the app needs.
+
+Never change the kit only inside an app: the next sync would undo it.
+
+## Building a new Monad app
+
+A Monad app is a PySide6 desktop app that runs its AI models locally with OpenVINO. Start from an existing
+app, which already has the layout every app shares:
+
+```
+<app>/
+├── <app>.py               # the app, a single file that runs without being installed
+├── <app>.svg              # its icon, from the template in docs/brand
+├── install.sh             # per-user installer, no root
+├── requirements.txt
+├── locale/it.json         # translations
+├── common/                # copy of the kit (tools/sync-common.sh)
+├── packaging/             # AppImage build
+├── tools/                 # translation and contrast checks
+└── .github/workflows/     # checks on every push, AppImage on every tag
 ```
 
-You can also start the apps from a terminal to see their output:
-
-```bash
-~/.local/share/ovms-manager/venv/bin/python ovms-manager/ovms_manager.py
-./lectern/lectern.sh
-```
-
-## Code style
-
-- Python 3.10+, standard library plus the packages in the `requirements.txt` files. Keep each app a
-  single file that runs without being installed as a package.
-- Follow the style of the surrounding code: 120-character lines, short comments that explain *why*.
-- User-visible text is written in English and wrapped in `tr()` (see [Translations](#translations)).
-- Shell scripts use `bash` with `set -euo pipefail`, must work on every distribution listed in the
-  README, and must not require root.
-
-## Building a new app of the ecosystem
-
-New apps reuse the shared kit in [common/ui_kit.py](common/ui_kit.py), so the whole ecosystem looks and
-behaves the same:
+Then use the kit, so the new app looks and behaves like the others:
 
 ```python
 import ui_kit as kit
@@ -49,75 +56,38 @@ kit.load_fonts(app)                          # Inter for the interface, Newsread
 theme = kit.ThemeManager(app, "ember", "system", lambda t: kit.base_qss(t) + my_qss(t))
 button = kit.IconButton("download", tr("Download"), "primary", slot)
 palette = kit.CommandPalette(window, provider, tr("Type a command…"), tr("No results"))
+updates = kit.UpdateChecker(window, APP_VERSION, get, put, "VarCode-ai/<app>")
 ```
 
-- Pick an accent in `ACCENTS`, or add a new one and check it with `python tools/check_contrast.py`.
+- Give the app **its own accent**: add it to `ACCENTS` in the kit and check it with
+  `python tools/check_contrast.py`. The [brand guide](docs/brand/README.md) lists the accents in use.
 - Draw with the theme tokens (`C["text"]`, `C["accent_soft"]`…), never with fixed colors. Painted
   widgets read them at paint time; anything else connects to `kit.signals.changed` (or uses
   `kit.Themed`) so it follows live theme switches.
 - Use `kit.icon()` instead of emoji, which some distributions cannot display.
-- Add the kit to the installer as in the existing `install.sh` (`COMMON_FILES`).
+- Read and write models in `~/models` (`$OPENVINO_MODELS_DIR`), so they are shared with every other app.
+- Follow the privacy rules of the family: no telemetry, no accounts, and every network connection listed
+  in the [README](README.md#every-network-connection-listed).
+- Draw the icon from the template in the [brand guide](docs/brand/README.md#app-icons), write the README
+  with the Monad header (copy it from an existing app), and add the app to [The apps](README.md#the-apps)
+  and to [Install in this order](README.md#install-in-this-order) here.
 
-## Translations
+## Code style
 
-User-visible text is written in English in the code and wrapped in `tr("…")`. Text defined before the
-language is known, such as tables of constants, is marked with `N_("…")` and passed to `tr()` where it is
-shown. Use named placeholders and `.format()`, never f-strings, inside `tr()`:
-
-```python
-tr("Cannot create {path}:\n{error}").format(path=path, error=e)
-```
-
-Each app keeps its translations in `locale/<language>.json`, a map from the English text to the
-translation. To add a language, for example German:
-
-1. Copy `lectern/locale/it.json` to `lectern/locale/de.json` (and the same for `ovms-manager`) and
-   translate the values. Keep the `{placeholders}` unchanged.
-2. Add `("de", "Deutsch")` to `UI_LANGUAGES` in `lectern.py` and `ovms_manager.py`.
-3. Add `locale/de.json` to `FILES` in both `install.sh`.
-4. In the menu entry written by each `install.sh`, add `GenericName[de]=`, `Comment[de]=` and
-   `Keywords[de]=` next to the Italian ones: desktops show them when the system language is German.
-5. Run `python tools/check_translations.py`.
-
-When you change or add a text in the code, update every catalog. `python tools/check_translations.py
---missing` prints the texts still to translate.
+- Python 3.10+, standard library plus the packages in the `requirements.txt` files.
+- Follow the style of the surrounding code: 120-character lines, short comments that explain *why*.
+- User-visible text is written in English and wrapped in `tr()`.
+- Shell scripts use `bash` with `set -euo pipefail`, must work on every distribution listed in the
+  README, and must not require root.
 
 ## Checks before a pull request
 
 ```bash
-pip install pyflakes shellcheck-py
-python -m pyflakes common/*.py ovms-manager/*.py lectern/*.py tools/*.py
-shellcheck ovms-manager/*.sh lectern/*.sh
-python tools/check_translations.py
+pip install pyflakes shellcheck-py PySide6-Essentials
+python -m pyflakes common/*.py tools/*.py
+shellcheck tools/*.sh
 python tools/check_contrast.py
 ```
-
-Then test what you changed by hand. For transcription changes, a short recording and a file with
-`lectern-transcribe` (for example with `OpenVINO/whisper-tiny-int8-ov` on the CPU) cover most paths.
-
-## Releasing a new version
-
-The apps compare their version with the latest GitHub release to show the update banner, so a release
-needs three steps:
-
-1. Raise `APP_VERSION` in `lectern/lectern.py` and `ovms-manager/ovms_manager.py`, using the same
-   [semantic version](https://semver.org/) for both, and add the changes to `CHANGELOG.md`.
-2. Commit, then tag with a `v` prefix and push the tag: `git tag -a v1.1.0 -m "1.1.0"` and
-   `git push origin v1.1.0`.
-3. The *Release binaries* workflow starts when the tag arrives. It builds the AppImages and attaches them,
-   with `SHA256SUMS`, to the release of the tag, creating the release if needed. Then edit the release on
-   GitHub and paste the CHANGELOG section as its notes. It must be published, not a draft or a
-   pre-release: the apps only see the latest published release.
-
-To build the AppImages on your machine (about 1 GB of downloads the first time):
-
-```bash
-packaging/build-appimage.sh            # both apps into dist/
-packaging/build-appimage.sh lectern    # only one
-```
-
-For a tag that was released before the workflow existed, run *Release binaries* by hand from the
-Actions tab and type the tag.
 
 ## License
 

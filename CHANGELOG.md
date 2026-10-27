@@ -1,10 +1,28 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
+All notable changes to Monad, the family repository, are documented here. From now on each app has its own
+changelog: [OVMS Manager](https://github.com/VarCode-ai/ovms-manager/blob/HEAD/CHANGELOG.md),
+[Lectern](https://github.com/VarCode-ai/lectern/blob/HEAD/CHANGELOG.md).
+
+The entries up to 1.0.0 cover both apps, which lived in this repository, then named `ai-app-local-openvino`.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
+
+### Monad
+
+- The project is now **Monad**, a family of local AI apps, with its own brand: the ⊙ symbol, the wordmark,
+  the colors and a common template for the app icons (`docs/brand/`).
+- **OVMS Manager** and **Lectern** moved to their own repositories, with their history:
+  [VarCode-ai/ovms-manager](https://github.com/VarCode-ai/ovms-manager) and
+  [VarCode-ai/lectern](https://github.com/VarCode-ai/lectern). Each one has its own releases and AppImage.
+- This repository keeps the install guide (OVMS Manager first, then Lectern), the documentation shared by
+  every app, and the reference copy of the UI kit, copied into the apps with `tools/sync-common.sh`.
+- The kit's update checker takes the repository of each app, so every app follows its own releases.
+
+The entries below, up to the move, describe changes to the apps made while they lived here.
 
 ### Downloads
 
@@ -65,5 +83,5 @@ First public release.
 - Automatic fallback from GPU or NPU to the CPU when an accelerator cannot be used.
 - Update notifications based on the GitHub releases: checked at most once a day, and they can be turned off.
 
-[Unreleased]: https://github.com/VarCode-ai/ai-app-local-openvino/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/VarCode-ai/ai-app-local-openvino/releases/tag/v1.0.0
+[Unreleased]: https://github.com/VarCode-ai/monad/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/VarCode-ai/monad/releases/tag/v1.0.0

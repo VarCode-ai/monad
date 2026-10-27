@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Shared UI kit of the ecosystem: design tokens, light/dark themes, fonts, icons and common components.
+"""Shared UI kit of the Monad apps: design tokens, light/dark themes, fonts, icons and common components.
 
 Every app of the project builds its interface on this module, so they share one visual language: warm neutral
 surfaces, one accent color per app, few borders, soft depth only on floating elements, Inter for the interface
@@ -747,8 +747,9 @@ class CommandPalette(QDialog):
 # ---------------------------------------------------------------------------
 # Update notifications (GitHub releases)
 # ---------------------------------------------------------------------------
-PROJECT_REPO = "VarCode-ai/ai-app-local-openvino"
-RELEASES_API = f"https://api.github.com/repos/{PROJECT_REPO}/releases/latest"
+# The family every app belongs to. Each app has its own repository and releases (`repo` of UpdateChecker).
+FAMILY_NAME = "Monad"
+FAMILY_URL = "https://github.com/VarCode-ai/monad"
 
 
 def parse_version(text):
@@ -769,17 +770,17 @@ class Release:
 
 
 class UpdateChecker(QObject):
-    """Checks the latest GitHub release at most once every `interval` seconds, in a background thread, and emits
+    """Checks the latest GitHub release of `repo` ("owner/name") at most once every `interval` seconds, in a background thread, and emits
     `found(Release)` if it is newer than `current` and not skipped. Network errors are ignored: the check
     must never bother someone working offline. `get(key, default)` / `put(key, value)` store its state in the
     app's settings; `enabled` turns it off."""
     found = Signal(object)
     finished = Signal(object)  # Release, or None if up to date / unreachable (for "check now")
 
-    def __init__(self, parent, current, get, put, interval=24 * 3600, api_url=RELEASES_API):
+    def __init__(self, parent, current, get, put, repo, interval=24 * 3600):
         super().__init__(parent)
-        self.current, self.get, self.put = current, get, put
-        self.interval, self.api_url = interval, api_url
+        self.current, self.get, self.put, self.repo = current, get, put, repo
+        self.interval, self.api_url = interval, f"https://api.github.com/repos/{repo}/releases/latest"
 
     @property
     def enabled(self):
@@ -812,7 +813,7 @@ class UpdateChecker(QObject):
         import urllib.request
         try:
             req = urllib.request.Request(self.api_url, headers={"Accept": "application/vnd.github+json",
-                                                                "User-Agent": "ai-app-local-openvino"})
+                                                                "User-Agent": self.repo})
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.load(resp)
         except Exception:  # noqa: BLE001 - offline, rate limited, no release yet: silently nothing
@@ -833,7 +834,7 @@ class UpdateChecker(QObject):
             self.finished.emit(None)
             return
         release = Release(version, name or self.get("update_latest_name", "") or tag,
-                          url or self.get("update_latest_url", "") or f"https://github.com/{PROJECT_REPO}/releases")
+                          url or self.get("update_latest_url", "") or f"https://github.com/{self.repo}/releases")
         self.found.emit(release)
         self.finished.emit(release)
 

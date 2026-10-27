@@ -23,17 +23,11 @@ jobs:
 
       - name: Python syntax and lint
         run: |
-          python -m py_compile common/*.py ovms-manager/*.py lectern/*.py tools/*.py
-          python -m pyflakes common/*.py ovms-manager/*.py lectern/*.py tools/*.py
+          python -m py_compile common/*.py tools/*.py
+          python -m pyflakes common/*.py tools/*.py
 
       - name: Shell scripts
-        run: shellcheck ovms-manager/*.sh lectern/*.sh packaging/*.sh packaging/AppRun
-
-      - name: Translations are complete
-        run: python tools/check_translations.py
+        run: shellcheck tools/*.sh
 
       - name: Theme colors meet WCAG 2.2 AA
         run: python tools/check_contrast.py
-
-      - name: Batch transcriber command line
-        run: python lectern/transcribe.py --help

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="292" height="88" viewBox="-4 -8 292 88" role="img" aria-label="Monad">
+  <title>Monad</title>
+  <g fill="none" stroke="#1c1b19" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 70 V38 A12 12 0 0 1 28 38 V70 M28 38 A12 12 0 0 1 52 38 V70"/>
+    <circle cx="92" cy="48" r="22"/>
+    <path d="M130 70 V38 A12 12 0 0 1 154 38 V70"/>
+    <circle cx="192" cy="48" r="22"/>
+    <path d="M214 26 V70"/>
+    <circle cx="254" cy="48" r="22"/>
+    <path d="M276 -2 V70"/>
+  </g>
+  <circle cx="92" cy="48" r="6.5" fill="#9a6415"/>
+</svg>
