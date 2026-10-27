@@ -77,8 +77,8 @@ git clone https://github.com/VarCode-ai/ovms-manager.git
 ./ovms-manager/install.sh
 ```
 
-Or download `OVMS-Manager-<version>-x86_64.AppImage` from its
-[latest release](https://github.com/VarCode-ai/ovms-manager/releases/latest).
+Or, from its [latest release](https://github.com/VarCode-ai/ovms-manager/releases/latest), download
+`OVMS-Manager-<version>-x86_64.AppImage`, or `OVMS-Manager-<version>.tar.gz` to unpack and install with `./install.sh`.
 
 ### 3. Lectern
 
@@ -89,8 +89,8 @@ git clone https://github.com/VarCode-ai/lectern.git
 ./lectern/install.sh
 ```
 
-Or download `Lectern-<version>-x86_64.AppImage` from its
-[latest release](https://github.com/VarCode-ai/lectern/releases/latest).
+Or, from its [latest release](https://github.com/VarCode-ai/lectern/releases/latest), download
+`Lectern-<version>-x86_64.AppImage`, or `Lectern-<version>.tar.gz` to unpack and install with `./install.sh`.
 
 Lectern also works on its own: `lectern-transcribe` can download its Whisper model the first time you use
 it. Installing OVMS Manager first gives you one place to browse, download and remove every model.
@@ -106,13 +106,14 @@ Then open Lectern: the model is already there.
 
 ### Installers and AppImages
 
-Every app offers the same two ways in, and they behave the same everywhere:
+Every app offers the same ways in, and they behave the same everywhere:
 
 - **AppImage**: one file with its own Python, Qt and OpenVINO. It installs nothing, needs no root, and runs
-  on any x86-64 distribution with glibc 2.34 or newer. Verify it with the `SHA256SUMS` of the same release.
+  on any x86-64 distribution with glibc 2.34 or newer. Verify every download with the `SHA256SUMS` of the same release.
 - **Installer** (`./install.sh` in each repository): works only in your home folder and never asks for
   `sudo`. It creates a private Python environment, adds the app to the application menu and a command to
-  `~/.local/bin`. Once done you can delete the clone. `--uninstall` removes the app and keeps your models,
+  `~/.local/bin`. It is in the clone of the repository and in the `<App>-<version>.tar.gz` archive of each
+  release. Once done you can delete the folder. `--uninstall` removes the app and keeps your models,
   notes and settings; `--dev` runs the files of the clone; `PYTHON=python3.12` picks another Python.
 
 ### Updating
