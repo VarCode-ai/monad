@@ -12,6 +12,12 @@ All notable changes to this project are documented here. The format follows
   with glibc 2.34 or newer. The Lectern AppImage also runs `lectern-transcribe` (`… transcribe -i <folder>`).
 - A *Release binaries* workflow builds them for every tag and attaches them to the GitHub release.
 
+### Fixed
+
+- Lectern: speech was almost never detected on some laptops (an Intel Core Ultra digital microphone with
+  Qt 6.12, including the AppImage). The microphone is now recorded through PipeWire's `pw-record`, with Qt as
+  the fallback; the log records which way it is recorded and in what format.
+
 ### Privacy
 
 - The apps switch off the optional usage statistics of the libraries they run. For Hugging Face downloads

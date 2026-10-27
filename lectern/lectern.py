@@ -34,8 +34,14 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
 import numpy as np
-from PySide6.QtCore import (QDate, QEvent, QFile, QLibraryInfo, QLocale, QRectF, QSettings, QSize,
-                            QStandardPaths, Qt, QThread, QTimer, QTranslator, QUrl, Signal)
+
+# Qt 6.10+ records through a new native PipeWire backend by default. Where Lectern still records through Qt (see
+# PipeWireSource) use the PulseAudio API instead (served by pipewire-pulse on modern systems): on a machine where both
+# were measured, Silero recognized more of the speech with it. QT_AUDIO_BACKEND=pipewire still overrides it.
+os.environ.setdefault("QT_AUDIO_BACKEND", "pulseaudio")
+
+from PySide6.QtCore import (QDate, QEvent, QFile, QLibraryInfo, QLocale, QRectF, QProcess, QSettings, QSize,
+                            QStandardPaths, qVersion, Qt, QThread, QTimer, QTranslator, QUrl, Signal)
 from PySide6.QtGui import (QAction, QActionGroup, QColor, QDesktopServices, QFont, QIcon, QKeySequence, QPainter,
                            QPalette, QTextBlockFormat, QTextCharFormat, QTextCursor)
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
@@ -163,6 +169,8 @@ OV_CACHE = os.path.join(CACHE_DIR, "ov_cache")  # GPU kernel cache: loading is f
 SILERO_URL = ("https://raw.githubusercontent.com/snakers4/silero-vad/master/"
               "src/silero_vad/data/silero_vad_openvino_16k.onnx")
 SILERO_PATH = os.path.join(CACHE_DIR, "silero_vad_openvino_16k.onnx")
+# Microphone through PipeWire's pw-record when available (see PipeWireSource); LECTERN_AUDIO=qt forces Qt
+PW_RECORD = None if os.environ.get("LECTERN_AUDIO") == "qt" else shutil.which("pw-record")
 # ==============================================
 
 # Whisper languages, with their own names; labels in N_() are translated where they are shown
@@ -329,6 +337,33 @@ class EnergyVAD:
             self.noise = max(self.noise, 1e-4)
             probs[i] = min(1.0, 0.5 * r / max(self.noise * self.factor, 0.004))
         return probs
+
+class PipeWireSource:
+    """Microphone through pw-record: raw 16 kHz mono s16 on its standard output, read like a QAudioSource.
+    On some systems (measured on an Intel Core Ultra digital microphone with Qt 6.12) the stream Qt opens carries
+    audio in which Silero recognizes almost no speech, while pw-record from the same microphone is recognized
+    normally (13% against 91% of the frames)."""
+
+    def __init__(self, target, parent):
+        self.proc = QProcess(parent)
+        self.proc.setStandardErrorFile(QProcess.nullDevice())
+        args = ["--raw", "--rate", str(SR), "--channels", "1", "--format", "s16"]
+        if target:
+            args += ["--target", target]
+        self.proc.start(PW_RECORD, args + ["-"])
+
+    def start(self):
+        return self.proc if self.proc.waitForStarted(3000) else None
+
+    def state(self):
+        return self.proc.state()
+
+    def stop(self):
+        self.proc.kill()
+        self.proc.waitForFinished(1000)
+
+    def deleteLater(self):
+        self.proc.deleteLater()
 
 def speech_mask(probs, threshold):
     """Hysteresis: speech starts above the threshold and continues until it drops well below it,
@@ -2772,13 +2807,10 @@ class LiveWindow(QMainWindow):
         mic = self.mics[self.cb_mic.currentData()]
         self._save_settings()
 
-        fmt = QAudioFormat()
-        fmt.setSampleRate(SR)
-        fmt.setChannelCount(1)
-        fmt.setSampleFormat(QAudioFormat.SampleFormat.Int16)
+        fmt = self.pw_fmt()
         if not mic.isFormatSupported(fmt):
             fmt = mic.preferredFormat()
-        self.fmt, self.resampler, self.leftover = fmt, Resampler(fmt.sampleRate()), b""
+        self.qt_fmt, self.use_pw, self.leftover = fmt, bool(PW_RECORD), b""
 
         threshold, factor = self.cb_sens.currentData()
         if not isinstance(self.vad, SileroVAD):
@@ -2993,6 +3025,21 @@ class LiveWindow(QMainWindow):
         if self.source:
             self.source.stop()
             self.source.deleteLater()
+            self.source = self.io = None
+        if self.use_pw:
+            # the default microphone follows the system choice; another one is named as pw-record's target
+            target = "" if self.mic == QMediaDevices.defaultAudioInput() else bytes(self.mic.id()).decode()
+            self.source = PipeWireSource(target, self)
+            self.io = self.source.start()
+            if self.io is not None:
+                self._set_format(self.pw_fmt(), "pw-record")
+                self.io.readyRead.connect(self.on_audio)
+                self.last_audio = time.time()
+                return True
+            log.warning("pw-record did not start: recording through Qt")
+            self.source.deleteLater()
+            self.source, self.use_pw = None, False
+        self._set_format(self.qt_fmt, "Qt " + qVersion() + ", " + os.environ.get("QT_AUDIO_BACKEND", ""))
         self.source = QAudioSource(self.mic, self.fmt, self)
         # 2 s buffer: if the interface freezes for a moment no audio is lost
         self.source.setBufferSize(int(2 * self.fmt.sampleRate() * self.fmt.bytesPerFrame()))
@@ -3004,6 +3051,19 @@ class LiveWindow(QMainWindow):
         self.last_audio = time.time()
         return True
 
+    @staticmethod
+    def pw_fmt():
+        fmt = QAudioFormat()
+        fmt.setSampleRate(SR)
+        fmt.setChannelCount(1)
+        fmt.setSampleFormat(QAudioFormat.SampleFormat.Int16)
+        return fmt
+
+    def _set_format(self, fmt, via):
+        self.fmt, self.resampler, self.leftover = fmt, Resampler(fmt.sampleRate()), b""
+        log.info("microphone %r via %s: %d Hz, %d ch, %s", self.mic.description(), via, fmt.sampleRate(),
+                 fmt.channelCount(), fmt.sampleFormat().name)
+
     def _watchdog(self):
         """Some systems (PulseAudio/PipeWire, device suspend) stop sending audio without reporting an
         error: if nothing arrives for a few seconds, the microphone is reopened."""
@@ -3011,6 +3071,8 @@ class LiveWindow(QMainWindow):
             return
         state = self.source.state().name
         self.mic_restarts += 1
+        if self.use_pw and self.mic_restarts >= 2:  # pw-record keeps stalling (or exited): fall back to Qt
+            self.use_pw = False
         log.info("microphone silent for %.1f s (state %s): reopening it", time.time() - self.last_audio, state)
         self.leftover = b""
         if self._open_source():

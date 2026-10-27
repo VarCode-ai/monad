@@ -185,9 +185,11 @@ From the third argument on, the options are passed to `transcribe.py`, which you
 
 ## How live transcription works
 
-1. The microphone audio is converted to 16 kHz mono and goes into a buffer. A watchdog reopens the
-   microphone if it stops sending audio, which can happen with PulseAudio/PipeWire after a device
-   suspend.
+1. The microphone is recorded as 16 kHz mono through PipeWire's `pw-record` (package `pipewire-utils`
+   or `pipewire-bin`) and goes into a buffer. Without `pw-record`, or with `LECTERN_AUDIO=qt`, Lectern
+   records through Qt instead; on some laptops Qt 6.12 gets audio in which hardly any speech is detected.
+   A watchdog reopens the microphone if it stops sending audio, which can happen with PulseAudio/PipeWire
+   after a device suspend.
 2. [Silero VAD](https://github.com/snakers4/silero-vad), run with OpenVINO on the CPU, gives the
    probability of speech for every 32 ms frame. If Silero cannot be downloaded on the first start, a
    simpler volume threshold is used instead.
@@ -222,6 +224,7 @@ more accurate than transcribing short sentences one by one.
 | "to transcribe" keeps growing during a lecture | The model is too slow for this device. Use a *turbo* model, *Fast* precision and the GPU, or turn off the preview. |
 | Words are lost when the speaker is far away | *High* sensitivity, pause around 1 s, and add the course terms. Turn on *Also save the audio* and transcribe the `.wav` again later with large-v3. |
 | The text repeats the course terms instead of the speech | Lectern detects this and retries without the context. If it keeps happening, shorten the recurring terms. |
+| Speech is almost never detected (the waveform moves but is rarely colored) | Install `pw-record` (`pipewire-utils` on Fedora, `pipewire-bin` on Debian/Ubuntu). **Help → Open log file** shows which way the microphone is recorded (`via pw-record` or `via Qt`). |
 | *No microphone found* | Check that PipeWire or PulseAudio is running and that the microphone is not muted in your system settings. |
 | The GPU is not used | Install the Intel compute runtime (see the main README) and check **Help → Open log file**. |
 
